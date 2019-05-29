@@ -1,0 +1,23 @@
+Package: CDTMergingF
+Version: 1.0
+Title: Climate Data Tools Merging Methods
+Description: Climate Data Tools (CDT) merging methods.
+Authors@R: person("Rija", "Faniriantsoa", email = "rijaf@iri.columbia.com", role = c("aut", "cre"))
+Author: Rija Faniriantsoa [aut, cre]
+Maintainer: Rija Faniriantsoa <rijaf@iri.columbia.com>
+URL: https://github.com/rijaf-iri/CDTMergingF
+License: GPL (>= 2)
+Encoding: UTF-8
+LazyData: true
+NeedsCompilation: yes
+Depends: 
+    R (>= 3.2.0),
+Imports: 
+    ncdf4,
+    sp,
+    gstat,
+    automap,
+    maptools,
+    rgeos,
+    methods
+RoxygenNote: 6.1.1
