@@ -242,12 +242,12 @@ cdtMerging <- function(
 			nc.val <- transposeNCDFData(nc.val, nc.order)
 		}else{
 			cat(paste(ncInfo$dates[jj], ":", "no netcdf data", "|", "no file generated", "\n"))
-			next
+			return(-1)
 		}
 
 		if(all(is.na(nc.val))){
 			cat(paste(ncInfo$dates[jj], ":", "all netcdf data are missing", "|", "no file generated", "\n"))
-			next
+			return(-1)
 		}
 
 		######
@@ -257,7 +257,7 @@ cdtMerging <- function(
 		donne.stn <- stnData$data[stnData$date == ncInfo$dates[jj], , drop = FALSE]
 		if(nrow(donne.stn) == 0 | ncol(donne.stn) < pass.nmin[length(pass.nmin)]){
 			cat(paste(ncInfo$dates[jj], ":", "no station data", "|", "no file generated", "\n"))
-			next
+			return(-1)
 		}
 
 		locations.stn <- data.frame(lon = stnData$lon, lat = stnData$lat, stn = c(donne.stn[1, ]))
@@ -267,7 +267,7 @@ cdtMerging <- function(
 
 		if(length(locations.stn) < pass.nmin[length(pass.nmin)]){
 			cat(paste(ncInfo$dates[jj], ":", "no station data", "|", "no file generated", "\n"))
-			next
+			return(-1)
 		}
 
 		out.mrg <- merging.functions(locations.stn, newgrid, 
@@ -295,6 +295,7 @@ cdtMerging <- function(
 		nc <- nc_create(out.nc.file, grd.nc.out)
 		ncvar_put(nc, grd.nc.out, out.mrg)
 		nc_close(nc)
+		return(0)
 	})
 
 	invisible()

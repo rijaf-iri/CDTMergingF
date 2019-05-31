@@ -178,7 +178,7 @@ cdt.doparallel <- function(condition, dopar = TRUE, detect.cores = TRUE, nb.core
 }
 
 ## foreach, use lapply if not parallel
-cdt.foreach <- function(loopL, parsL = NULL, ..., FUN)
+cdt.foreach <- function(loopL, parsL, ..., FUN)
 {
 	FUN <- match.fun(FUN)
 	if(missing(parsL)) parsL <- list(condition = FALSE)
