@@ -1,3 +1,66 @@
+#' Distance matrix
+#' 
+#' Distance matrix between two sets of points
+#'
+#' @param x a 2 column matrix or data.frame (first column is longitude, second is latitude); or a SpatialPoints*, SpatialPixels* or SpatialGrid* object.
+#' @param y Same as \code{x}. If \code{x} is a Spatial object, \code{y} can take a different Spatial object other than \code{x}.
+#' @param spheric If \code{FALSE} (default), then a Cartesian distance will be computed. If set to \code{TRUE}, a spherical distance (using a standard great circle method) will be computed.
+#' @return Matrix of distances. The row represent \code{y} and the column \code{x}.
+#' 
+#' @export
+
+distance.Matrix <- function(x, y, spheric = FALSE){
+	if(inherits(x, "matrix") && inherits(y, "matrix")){
+		x <- x[, 1:2, drop = FALSE]
+		y <- y[, 1:2, drop = FALSE]
+	}else if(inherits(x, "data.frame") && inherits(y, "data.frame")){
+		x <- as.matrix(x[, 1:2, drop = FALSE])
+		y <- as.matrix(y[, 1:2, drop = FALSE])
+	}else{
+		class.x <- substr(class(x), 1, 7)
+		class.y <- substr(class(y), 1, 7)
+		if(class.x == "Spatial" && class.y == "Spatial"){
+			if(!identical(proj4string(x), proj4string(y)))
+				stop("x and y have different coordinate reference systems")
+			x <- as.matrix(coordinates(x))
+			y <- as.matrix(coordinates(y))
+		}else{
+			stop("x and y must be a matrix, data.frame or sp Spatial object")
+		}
+	}
+
+	distance.matrix(x, y, spheric)
+}
+
+distance.vector <- function(x, y, spheric){
+	# x: vector c(x, y)
+	# y: matrix X Y
+	x <- as.numeric(x)
+	y <- as.matrix(y)
+	storage.mode(x) <- "double"
+	storage.mode(y) <- "double"
+	nr <- nrow(y)
+	out <- vector("numeric", length = nr)
+	out <- .Fortran("distance_vector", x, y, as.integer(nr), as.integer(spheric), dst = out)
+	out$dst
+}
+
+distance.matrix <- function(x, y, spheric){
+	# x: matrix X Y
+	# y: matrix X Y
+	x <- as.matrix(x)
+	y <- as.matrix(y)
+	storage.mode(x) <- "double"
+	storage.mode(y) <- "double"
+	n1 <- nrow(x)
+	n2 <- nrow(y)
+	dst <- matrix(double(1), nrow = n2, ncol = n1)
+	out <- .Fortran("distance_matrix", x, y, as.integer(n1), as.integer(n2),
+					as.integer(spheric), dst = dst)
+	out$dst
+}
+
+########################################
 
 defSpatialPixels <- function(grd_Coords){
 	# grd_Coords: named list(lon, lat)
@@ -86,27 +149,53 @@ create_grid_buffer <- function(locations.stn, newgrid, radius, spheric)
 
 ########################################
 
-distance.vector <- function(xy.pt, XY, spheric){
-	# xy.pt: vector c(x, y)
-	# XY: matrix X Y
-	xy.pt <- as.numeric(xy.pt)
-	XY <- as.matrix(XY)
-	nr <- nrow(XY)
-	out <- vector("numeric", length = nr)
-	out <- .Fortran("distance_vector", xy.pt, XY, as.integer(nr), as.integer(spheric), dst = out)
-	out$dst
+## Create parallel loop
+cdt.doparallel <- function(condition, dopar = TRUE, detect.cores = TRUE, nb.cores = 2)
+{
+	okpar <- FALSE
+	if(dopar){
+		cores <- detectCores()
+		if(detect.cores){
+			nb.cores <- cores - 1
+			okpar <- if(nb.cores >= 2) TRUE else FALSE
+		}else{
+			okpar <- if(cores >= 2 && nb.cores >= 2) TRUE else FALSE
+		}
+	}
+
+	if(okpar & condition){
+		klust <- makeCluster(nb.cores)
+		registerDoParallel(klust)
+		`%dofun%` <- `%dopar%`
+		closeklust <- TRUE
+	}else{
+		klust <- NULL
+		`%dofun%` <- `%do%`
+		closeklust <- FALSE
+	}
+
+	list(dofun = `%dofun%`, cluster = klust, parLL = closeklust)
 }
 
-distance.matrix <- function(XY1, XY2, spheric){
-	# XY1: matrix X Y
-	# XY2: matrix X Y
-	XY1 <- as.matrix(XY1)
-	XY2 <- as.matrix(XY2)
-	n1 <- nrow(XY1)
-	n2 <- nrow(XY2)
-	dst <- matrix(double(1), nrow = n2, ncol = n1)
-	out <- .Fortran("distance_matrix", XY1, XY2, as.integer(n1), as.integer(n2),
-					as.integer(spheric), dst = dst)
-	out$dst
+## foreach, use lapply if not parallel
+cdt.foreach <- function(loopL, parsL = NULL, ..., FUN)
+{
+	FUN <- match.fun(FUN)
+	if(missing(parsL)) parsL <- list(condition = FALSE)
+	is.parallel <- do.call(cdt.doparallel, parsL)
+
+	if(is.parallel$parLL){
+		`%parLoop%` <- is.parallel$dofun
+		ret.loop <- foreach(jloop = loopL, ...) %parLoop% FUN(jloop)
+		stopCluster(is.parallel$cluster)
+	}else{
+		.lapply <- function(X, FUN) lapply(X, FUN)
+		ret.loop <- .lapply(loopL, FUN)
+	}
+
+	return(ret.loop)
 }
+
+
+
 

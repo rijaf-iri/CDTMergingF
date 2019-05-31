@@ -14,7 +14,8 @@ cdtMerging(time.step = "dekadal", start.date = c(1981, 1, 1),
   NULL, format = "rr_mrg_\%s\%s\%s.nc", name = "precip", units = "mm",
   longname = NA, prec = "short"), use.RnoR = FALSE,
   pars.RnoR = list(wet.day = 1, smooth = FALSE), vgm.model = c("Exp",
-  "Gau", "Sph", "Pen"))
+  "Gau", "Sph", "Pen"), parallel = list(dopar = TRUE, detect.cores =
+  TRUE, nb.cores = 2))
 }
 \arguments{
 \item{time.step}{Time step of the data. Should be \strong{"daily"}, \strong{"pentad"}, \strong{"dekadal"} or \strong{"monthly"}.}
@@ -49,7 +50,7 @@ cdtMerging(time.step = "dekadal", start.date = c(1981, 1, 1),
 \itemize{
     \item \strong{"CSc"}: Cressman Scheme
     \item \strong{"BSc"}: Barnes Scheme
-    \item \strong{"SBA"}: Simple Bias Adjustement
+    \item \strong{"SBA"}: Simple Bias Adjustment
     \item \strong{"RK"}: Regression Kriging
 }}
 
@@ -72,7 +73,7 @@ cdtMerging(time.step = "dekadal", start.date = c(1981, 1, 1),
 
 \item{pass.nmax}{A vector giving the maximum number of stations to be used to interpolate a grid point for each pass. Must be the same length as \code{pass.ratio}.}
 
-\item{neg.value}{If \code{TRUE},  negative values will be kept. If \code{FALSE} (default), negative values will be set to zero.}
+\item{neg.value}{If \code{TRUE}, negative values will be kept. If \code{FALSE} (default), negative values will be set to zero.}
 
 \item{output}{A list of the output information.
 \itemize{
@@ -93,10 +94,17 @@ cdtMerging(time.step = "dekadal", start.date = c(1981, 1, 1),
 }}
 
 \item{vgm.model}{A vector of variogram model to be used if \code{interp.method} is \strong{"kriging"}. Default is \code{c("Exp", "Gau", "Sph", "Pen")}.}
+
+\item{parallel}{A list of parameters for parallel processing.
+\itemize{
+\item \code{dopar}: if \code{TRUE} (default), use parallel computing
+\item \code{detect.cores}: if \code{TRUE} (default), detect the number of CPU cores.
+\item \code{nb.cores}: if \code{dopar} is \code{TRUE} and \code{detect.cores} is \code{FALSE}, the number of CPU cores to be used 
+}}
 }
 \description{
-This function blends station data with a gridded data. The blending methods are Regression Kriging, Simple Bias Adjustement (additive bias),
-Cressman Scheme and Barnes Scheme. The radius of influence for the interpolation method varies for each grid point.
+This function blends station data with a gridded data. The blending methods are "Regression Kriging", "Simple Bias Adjustment" (additive bias),
+"Cressman Scheme" and "Barnes Scheme". The radius of influence for the interpolation method varies for each grid point.
 }
 \examples{
 

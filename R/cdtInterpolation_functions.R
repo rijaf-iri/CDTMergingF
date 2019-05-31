@@ -1,4 +1,3 @@
-
 #' CDT interpolation methods
 #' 
 #' This function interpolates stations data on a rectangular grid in the x-y plane.
@@ -42,9 +41,6 @@ cdtInterp <- function(locations, values, newdata, nmin = 4, nmax = 10,
 
 	return(interp.res)
 }
-
-##########################################################################################
-
 
 idw.interp <- function(locations, values, newdata, nmin, nmax, spheric, p = 2){
 	# locations: matrix X Y
@@ -125,7 +121,9 @@ kriging.interp <- function(locations, values, newdata, vgm, nmin, nmax, spheric)
 					as.integer(nmin), as.integer(nmax), as.integer(spheric),
 					model, nug, sill, rg, outM = outM)
 
-	out$outM
+	out <- out$outM
+	out[is.nan(out)] <- NA
+	out
 }
 
 spheremap.interp <- function(locations, values, newdata, nmin, nmax, spheric){

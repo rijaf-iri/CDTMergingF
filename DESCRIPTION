@@ -19,5 +19,8 @@ Imports:
     automap,
     maptools,
     rgeos,
-    methods
+    methods,
+    parallel,
+    foreach,
+    doParallel
 RoxygenNote: 6.1.1

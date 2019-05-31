@@ -1,7 +1,7 @@
 #' CDT merging methods
 #' 
-#' This function blends station data with a gridded data. The blending methods are Regression Kriging, Simple Bias Adjustement (additive bias),
-#' Cressman Scheme and Barnes Scheme. The radius of influence for the interpolation method varies for each grid point. 
+#' This function blends station data with a gridded data. The blending methods are "Regression Kriging", "Simple Bias Adjustment" (additive bias),
+#' "Cressman Scheme" and "Barnes Scheme". The radius of influence for the interpolation method varies for each grid point. 
 #' 
 #' @param time.step Time step of the data. Should be \strong{"daily"}, \strong{"pentad"}, \strong{"dekadal"} or \strong{"monthly"}.
 #' @param start.date A vector of the start date to merge. 
@@ -30,7 +30,7 @@
 #' \itemize{
 #' 	\item \strong{"CSc"}: Cressman Scheme
 #' 	\item \strong{"BSc"}: Barnes Scheme
-#' 	\item \strong{"SBA"}: Simple Bias Adjustement
+#' 	\item \strong{"SBA"}: Simple Bias Adjustment
 #' 	\item \strong{"RK"}: Regression Kriging
 #' }
 #' @param interp.method Interpolation method to be used for \strong{"SBA"} and \strong{"RK"}.
@@ -46,7 +46,7 @@
 #' @param pass.ratio A vector giving the fraction of \code{maxdist} to be used for each pass.
 #' @param pass.nmin A vector giving the minimum number of stations to be used to interpolate a grid point for each pass. Must be the same length as \code{pass.ratio}.
 #' @param pass.nmax A vector giving the maximum number of stations to be used to interpolate a grid point for each pass. Must be the same length as \code{pass.ratio}.
-#' @param neg.value If \code{TRUE},  negative values will be kept. If \code{FALSE} (default), negative values will be set to zero.
+#' @param neg.value If \code{TRUE}, negative values will be kept. If \code{FALSE} (default), negative values will be set to zero.
 #' @param output A list of the output information.
 #' \itemize{
 #' 	\item \code{dir}: full path to the directory to save the results
@@ -63,6 +63,12 @@
 #' 	\item \code{smooth}: if \code{TRUE}, smooth the mask
 #' }
 #' @param vgm.model A vector of variogram model to be used if \code{interp.method} is \strong{"kriging"}. Default is \code{c("Exp", "Gau", "Sph", "Pen")}.
+#' @param parallel A list of parameters for parallel processing.
+#' \itemize{
+#' \item \code{dopar}: if \code{TRUE} (default), use parallel computing
+#' \item \code{detect.cores}: if \code{TRUE} (default), detect the number of CPU cores.
+#' \item \code{nb.cores}: if \code{dopar} is \code{TRUE} and \code{detect.cores} is \code{FALSE}, the number of CPU cores to be used 
+#' }
 #'
 #' @examples
 #' 
@@ -111,7 +117,8 @@ cdtMerging <- function(
 						output = list(dir = NULL, format = "rr_mrg_%s%s%s.nc", name = "precip", units = "mm", longname = NA, prec = "short"),
 						use.RnoR = FALSE,
 						pars.RnoR = list(wet.day = 1.0, smooth = FALSE),
-						vgm.model = c("Exp", "Gau", "Sph", "Pen")
+						vgm.model = c("Exp", "Gau", "Sph", "Pen"),
+						parallel = list(dopar = TRUE, detect.cores = TRUE, nb.cores = 2)
 					)
 {
 	# test missing start and end date
@@ -222,7 +229,12 @@ cdtMerging <- function(
 
 	##############
 
-	for(jj in seq_along(ncInfo$nc.files)){
+	parsL = c(condition = length(which(ncInfo$exist)) >= 20, parallel)
+
+	ret <- cdt.foreach(seq_along(ncInfo$nc.files), parsL = parsL,
+					.packages = c('sp', 'ncdf4'),
+					FUN = function(jj)
+	{
 		if(ncInfo$exist[jj]){
 			nc <- nc_open(ncInfo$nc.files[jj])
 			nc.val <- ncvar_get(nc, varid = netcdf$varid)
@@ -283,7 +295,7 @@ cdtMerging <- function(
 		nc <- nc_create(out.nc.file, grd.nc.out)
 		ncvar_put(nc, grd.nc.out, out.mrg)
 		nc_close(nc)
-	}
+	})
 
 	invisible()
 }
