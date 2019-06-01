@@ -178,6 +178,7 @@ cdt.doparallel <- function(condition, dopar = TRUE, detect.cores = TRUE, nb.core
 }
 
 ## foreach, use lapply if not parallel
+utils::globalVariables(c('jloop'))
 cdt.foreach <- function(loopL, parsL, ..., FUN)
 {
 	FUN <- match.fun(FUN)
@@ -195,7 +196,3 @@ cdt.foreach <- function(loopL, parsL, ..., FUN)
 
 	return(ret.loop)
 }
-
-
-
-
