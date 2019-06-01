@@ -26,7 +26,7 @@ merging.functions <- function(locations.stn, newgrid,
 		locations.stn <- locations.stn[!is.na(locations.stn$grd), ]
 
 		if(length(locations.stn) < nmin){
-			cat(paste(nc.date, ":", "not enough station data", "|", "Output: gridded data", "\n"))
+			cat(paste(nc.date, ":", paste("not enough station data pass#", pass), "|", "Output: gridded data", "\n"))
 			out.mrg <- matrix(newgrid@data$grd,
 							ncol = newgrid@grid@cells.dim[2],
 							nrow = newgrid@grid@cells.dim[1])
@@ -42,11 +42,11 @@ merging.functions <- function(locations.stn, newgrid,
 		## RK
 		if(merging.method == "RK"){
 			if(var(locations.stn$stn) < 1e-07 | var(locations.stn$grd, na.rm = TRUE) < 1e-07){
-				cat(paste(nc.date, ":", "Zero variance", "|", "Simple Bias Adjustment", "\n"))
+				cat(paste(nc.date, ":", paste("Zero variance @ GLM pass#", pass), "|", "Simple Bias Adjustment", "\n"))
 			}else{
 				glm.stn <- glm(stn ~ grd, data = locations.stn, family = gaussian)
 				if(is.na(glm.stn$coefficients[2]) | glm.stn$coefficients[2] < 0){
-					cat(paste(nc.date, ":", "Invalid GLM coeffs", "|", "Simple Bias Adjustment", "\n"))
+					cat(paste(nc.date, ":", paste("Invalid GLM coeffs pass#", pass), "|", "Simple Bias Adjustment", "\n"))
 				}else{
 					sp.trend <- predict(glm.stn, newdata = newdata0)
 					ina.out <- is.na(sp.trend)
@@ -81,11 +81,11 @@ merging.functions <- function(locations.stn, newgrid,
 						vgm$range[2] <- distance.vector(pts, matrix(ctr, nrow = 1), spheric)
 					}
 				}else{
-					cat(paste(nc.date, ":", "Unable to compute variogram", "|", "Interpolation using IDW", "\n"))
+					cat(paste(nc.date, ":", paste("Unable to compute variogram pass#", pass), "|", "Interpolation using IDW", "\n"))
 					interp.method <- "idw"
 				}
 			}else{
-				cat(paste(nc.date, ":", "Unable to compute variogram", "|", "Interpolation using IDW", "\n"))
+				cat(paste(nc.date, ":", paste("Unable to compute variogram pass#", pass), "|", "Interpolation using IDW", "\n"))
 				interp.method <- "idw"
 			}
 		}

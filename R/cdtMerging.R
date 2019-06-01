@@ -188,7 +188,7 @@ cdtMerging <- function(
 					data = local({
 								tmp <- stnData[-(1:pos), -1, drop = FALSE]
 								ntmp <- dim(tmp)
-								tmp <- as.numeric(tmp)
+								tmp <- as.numeric(unlist(tmp))
 								dim(tmp) <- ntmp
 								tmp
 						})
