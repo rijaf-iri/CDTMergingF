@@ -96,17 +96,17 @@ grid2pointINDEX <- function(pts_Coords, grd_Coords){
 ########################################
 
 smooth.matrix <- function(mat, ns){
-    mat0 <- mat
-    M <- matrix(NA, nrow(mat) + 2 * ns, ncol(mat) + 2 * ns)
-    sqC <- (ns + 1):(ncol(M) - ns)
-    sqR <- (ns + 1):(nrow(M) - ns)
+    rm <- nrow(mat) + 2 * ns
+    cm <- ncol(mat) + 2 * ns
+    M <- matrix(NA, rm, cm)
+    sqC <- (ns + 1):(cm - ns)
+    sqR <- (ns + 1):(rm - ns)
     M[sqR, sqC] <- mat
     sqN <- -ns:ns
     for(j in sqC)
         for(i in sqR)
             mat[i - ns, j - ns] <- mean(M[i + sqN, j + sqN], na.rm = TRUE)
     mat[is.nan(mat)] <- NA
-    mat <- (2 * mat0 + mat) / 3
     return(mat)
 }
 
