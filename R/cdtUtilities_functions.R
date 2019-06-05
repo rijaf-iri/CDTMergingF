@@ -84,9 +84,16 @@ grid2pointINDEX <- function(pts_Coords, grd_Coords){
     # pts_Coords: named list(lon, lat)
     newgrid <- expand.grid(lon = grd_Coords$lon, lat = grd_Coords$lat)
     coordinates(newgrid) <- ~lon+lat
-    newgrid <- SpatialPixels(points = newgrid,
+    newgrid <- try(SpatialPixels(points = newgrid,
                             tolerance = sqrt(sqrt(.Machine$double.eps)),
-                            proj4string = CRS(as.character(NA)))
+                            proj4string = CRS(as.character(NA))), silent = TRUE)
+    if(inherits(newgrid, "try-error")){
+        newgrid <- expand.grid(lon = grd_Coords$lon, lat = grd_Coords$lat)
+        coordinates(newgrid) <- ~lon+lat
+        newgrid <- SpatialPixels(points = newgrid, tolerance = 0.001,
+                                proj4string = CRS(as.character(NA)))
+    }
+
     pts.loc <- data.frame(lon = pts_Coords$lon, lat = pts_Coords$lat)
     pts.loc <- SpatialPoints(pts.loc)
     ijGrd <- unname(over(pts.loc, geometry(newgrid)))

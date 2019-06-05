@@ -20,13 +20,13 @@ cdtInterp(locations, values, newdata, nmin = 4, nmax = 10,
 
 \item{method}{Method to calculate weights for the interpolation. Should be \strong{"idw"} (default), \strong{"shepard"}, \strong{"spheremap"} or \strong{"kriging"}.
 \itemize{
-    \item \strong{"idw"}: Inverse distance weighted
-    \item \strong{"shepard"}: Modified Shepard interpolation
-    \item \strong{"spheremap"}: Spheremap interpolation method
-    \item \strong{"kriging"}: Ordiranry kriging
+ \item \strong{"idw"}: Inverse distance weighted
+ \item \strong{"shepard"}: Modified Shepard interpolation
+ \item \strong{"spheremap"}: Spheremap interpolation method
+ \item \strong{"kriging"}: Ordinary kriging
 }}
 
-\item{spheric}{If \code{FALSE} (default), then a cartesian distance will be computed. If set to \code{TRUE}, a spherical distance will be computed.}
+\item{spheric}{If \code{FALSE} (default), then a Cartesian distance will be computed. If set to \code{TRUE}, a spherical distance will be computed.}
 
 \item{vgm}{A \code{gstat} variogram model. Example: \code{vgm(10.2, "Sph", 2.7, 1.1)}.}
 

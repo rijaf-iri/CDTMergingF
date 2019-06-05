@@ -1,10 +1,12 @@
+
 useDynLib(CDTMergingF, .registration = TRUE)
 export(cdtInterp)
 export(cdtMerging)
+export(cdtMergingLOOCV)
 export(distance.Matrix)
 import(ncdf4, sp)
 importFrom(stats, binomial, gaussian, glm, predict, residuals, var)
-importFrom(utils, read.table)
+importFrom(utils, read.table, write.table)
 importFrom(methods, as)
 importFrom(doParallel, registerDoParallel)
 importFrom(foreach, "%do%")

@@ -1,7 +1,6 @@
-#' CDT merging methods
+#' CDT Merging Leave-One-Out Cross-Validation
 #' 
-#' This function blends station data with a gridded data. The blending methods are "Regression Kriging", "Simple Bias Adjustment" (additive bias),
-#' "Cressman Scheme" and "Barnes Scheme". The radius of influence for the interpolation method varies for each grid point. 
+#' This function perform a Leave-One-Out Cross-Validation.
 #' 
 #' @param time.step Time step of the data. Should be \strong{"daily"}, \strong{"pentad"}, \strong{"dekadal"} or \strong{"monthly"}.
 #' @param start.date A vector of the start date to merge. 
@@ -47,15 +46,7 @@
 #' @param pass.nmin A vector giving the minimum number of stations to be used to interpolate a grid point for each pass. Must be the same length as \code{pass.ratio}.
 #' @param pass.nmax A vector giving the maximum number of stations to be used to interpolate a grid point for each pass. Must be the same length as \code{pass.ratio}.
 #' @param neg.value If \code{TRUE}, negative values will be kept. If \code{FALSE} (default), negative values will be set to zero.
-#' @param output A list of the output information.
-#' \itemize{
-#'  \item \code{dir}: full path to the directory to save the results
-#'  \item \code{format}: filename format of the output file
-#'  \item \code{name}: name of the netcdf variable. Example: \strong{"precip"} or \strong{"temp"}
-#'  \item \code{units}: units of the netcdf variable
-#'  \item \code{longname}: longname of the netcdf
-#'  \item \code{prec}: Precision of the output created variable. Valid options: \strong{"short"}, \strong{"integer"}, \strong{"float"} or \strong{"double"}.
-#' }
+#' @param output.file Full path name to save the result.
 #' @param use.RnoR If \code{TRUE}, apply rain-no-rain mask for rainfall data.
 #' @param pars.RnoR A list of parameters to be used if \code{use.RnoR} is \code{TRUE}.
 #' \itemize{
@@ -73,7 +64,7 @@
 #' @examples
 #' 
 #' \dontrun{
-#' cdtMerging(
+#' cdtMergingLOOCV(
 #'      time.step = "dekadal",
 #'      start.date = c(2018, 1, 1),
 #'      end.date = c(2018, 12, 3),
@@ -89,9 +80,7 @@
 #'      pass.nmin = c(5, 4, 3),
 #'      pass.nmax = c(15, 10, 7),
 #'      neg.value = FALSE,
-#'      output = list(dir = "~/DONNEES/OUT_Merging", format = "rr_mrg_%s%s%s.nc",
-#'                  name = "precip", units = "mm",
-#'                  longname = "Merged Station-Satellite Rainfall", prec = "short"),
+#'      output.file = "~/DONNEES/OUT_Merging/LOOCV_SBA-idw.csv",
 #'      use.RnoR = TRUE,
 #'      pars.RnoR = list(wet.day = 1.0, smooth = FALSE),
 #'      vgm.model = c("Exp", "Gau", "Sph", "Pen")
@@ -100,7 +89,7 @@
 #' 
 #' @export
 
-cdtMerging <- function(
+cdtMergingLOOCV <- function(
                         time.step = "dekadal",
                         start.date = c(1981, 1, 1),
                         end.date = c(2018, 12, 3),
@@ -114,7 +103,7 @@ cdtMerging <- function(
                         pass.nmin = c(5, 4, 3),
                         pass.nmax = c(15, 10, 7),
                         neg.value = FALSE,
-                        output = list(dir = NULL, format = "rr_mrg_%s%s%s.nc", name = "precip", units = "mm", longname = NA, prec = "short"),
+                        output.file = NULL,
                         use.RnoR = FALSE,
                         pars.RnoR = list(wet.day = 1.0, smooth = FALSE),
                         vgm.model = c("Exp", "Gau", "Sph", "Pen"),
@@ -167,10 +156,9 @@ cdtMerging <- function(
 
     ##############
 
-    if(is.null(output$dir)) output$dir <- getwd()
-    outdir <- file.path(output$dir, paste("Merged_Data", xdeb, xfin, sep = '_'))
-    dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
-    log.file <- file.path(outdir, "log_file.txt")
+    # Test missing output 
+    if(is.null(output.file)) output.file <- file.path(getwd(), "LOOCV_output_file.csv")
+    log.file <- file.path(dirname(output.file), "LOOCV_log_file.txt")
 
     ##############
 
@@ -180,6 +168,7 @@ cdtMerging <- function(
     ipos <- which(!seph$values & seph$lengths >= 3 & seph$lengths <= 4)
     if(length(ipos) == 0 | ipos[1] != 1) stop('Station data is not in a standard unambiguous CDT format')
     pos <- seph$lengths[ipos[1]]
+    heads <- as.matrix(stnData[1:pos, ])
 
     stnData <- list(id = as.character(stnData[1, -1]),
                     lon = as.numeric(stnData[2, -1]),
@@ -198,8 +187,6 @@ cdtMerging <- function(
     ##############
 
     ## Test netcdf missing
-    if(is.na(output$longname)) output$longname <- output$name
-
     xdeb <- as.Date(paste(start.date, collapse = '-'))
     xfin <- as.Date(paste(end.date, collapse = '-'))
     errmsg <- "NetCDF data not found"
@@ -216,22 +203,18 @@ cdtMerging <- function(
     grd.lat <- grd.lat[yo]
     nc.order <- list(ilon = netcdf$order.lon, ilat = netcdf$order.lat, olon = xo, olat = yo)
 
-    dx <- ncdim_def("Lon", "degreeE", grd.lon)
-    dy <- ncdim_def("Lat", "degreeN", grd.lat)
-    shuffle <- if(output$prec %in% c("integer", "short")) TRUE else FALSE
-    grd.nc.out <- ncvar_def(output$name, output$units, list(dx, dy), -99,
-                            longname = output$longname, prec = output$prec,
-                            shuffle = shuffle, compression = 9)
-
     ##############
 
     newgrid <- defSpatialPixels(list(lon = grd.lon, lat = grd.lat))
+    ijGrd <- grid2pointINDEX(list(lon = stnData$lon, lat = stnData$lat),
+                            list(lon = grd.lon, lat = grd.lat))
+    out.stn <- rep(NA, length(ijGrd))
 
     ##############
 
     parsL = c(condition = length(which(ncInfo$exist)) >= 20, parallel)
 
-    ret <- cdt.foreach(seq_along(ncInfo$nc.files), parsL = parsL,
+    out.cv <- cdt.foreach(seq_along(ncInfo$nc.files), parsL = parsL,
                     .packages = c('sp', 'ncdf4'),
                     FUN = function(jj)
     {
@@ -243,13 +226,13 @@ cdtMerging <- function(
         }else{
             cat(paste(ncInfo$dates[jj], ":", "no netcdf data", "|",
                 "no file generated", "\n"), file = log.file, append = TRUE)
-            return(-1)
+            return(out.stn)
         }
 
         if(all(is.na(nc.val))){
             cat(paste(ncInfo$dates[jj], ":", "all netcdf data are missing", "|",
                 "no file generated", "\n"), file = log.file, append = TRUE)
-            return(-1)
+            return(out.stn)
         }
 
         ######
@@ -260,48 +243,47 @@ cdtMerging <- function(
         if(nrow(donne.stn) == 0 | ncol(donne.stn) < pass.nmin[length(pass.nmin)]){
             cat(paste(ncInfo$dates[jj], ":", "no station data", "|",
                 "no file generated", "\n"), file = log.file, append = TRUE)
-            return(-1)
+            return(out.stn)
         }
 
         locations.stn <- data.frame(lon = stnData$lon, lat = stnData$lat, stn = c(donne.stn[1, ]))
         coordinates(locations.stn) <- ~lon+lat
         noNA <- !is.na(locations.stn$stn)
         locations.stn <- locations.stn[noNA, ]
+        ijNA <- ijGrd[noNA]
 
         if(length(locations.stn) < pass.nmin[length(pass.nmin)]){
             cat(paste(ncInfo$dates[jj], ":", "no station data", "|",
                 "no file generated", "\n"), file = log.file, append = TRUE)
-            return(-1)
+            return(out.stn)
         }
 
-        out.mrg <- merging.functions(locations.stn, newgrid, 
-                                    merging.method, interp.method,
-                                    maxdist, pass.ratio, pass.nmin, pass.nmax, 
-                                    vgm.model, spheric, ncInfo$dates[jj],
-                                    neg.value, log.file)
-        if(use.RnoR){
-            rnr <- rain_no_rain.mask(locations.stn, newgrid, pars.RnoR, pass.nmax)
-            out.mrg <- out.mrg * rnr
-        }
+        xstn <- lapply(seq_along(locations.stn), function(ii){
+            loc.stn <- locations.stn[-ii, ]
+            out.mrg <- merging.functions(loc.stn, newgrid, 
+                                        merging.method, interp.method,
+                                        maxdist, pass.ratio, pass.nmin, pass.nmax, 
+                                        vgm.model, spheric, ncInfo$dates[jj],
+                                        neg.value, log.file)
+            if(use.RnoR){
+                rnr <- rain_no_rain.mask(loc.stn, newgrid, pars.RnoR, pass.nmax)
+                out.mrg <- out.mrg * rnr
+            }
 
-        ###################
+            out.mrg[ijNA[ii]]
+        })
+        xstn <- do.call(c, xstn)
+        out.stn[noNA] <- round(xstn, 1)
 
-        out.mrg[is.na(out.mrg)] <- -99
-
-        year <- substr(ncInfo$dates[jj], 1, 4)
-        month <- substr(ncInfo$dates[jj], 5, 6)
-        if(time.step == 'daily'){
-            ncfile <- sprintf(output$format, year, month, substr(ncInfo$dates[jj], 7, 8))
-        }else if(time.step %in% c('pentad', 'dekadal')){
-            ncfile <- sprintf(output$format, year, month, substr(ncInfo$dates[jj], 7, 7))
-        }else ncfile <- sprintf(output$format, year, month)
-
-        out.nc.file <- file.path(outdir, ncfile)
-        nc <- nc_create(out.nc.file, grd.nc.out)
-        ncvar_put(nc, grd.nc.out, out.mrg)
-        nc_close(nc)
-        return(0)
+        return(out.stn)
     })
+
+    out.cv <- do.call(rbind, out.cv)
+    out.cv <- cbind(ncInfo$dates, out.cv)
+    out.cv <- rbind(heads, out.cv)
+
+    write.table(out.cv, output.file, sep = station$sep, na = station$miss,
+                col.names = FALSE, row.names = FALSE, quote = FALSE)
 
     invisible()
 }
