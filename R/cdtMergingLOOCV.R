@@ -215,7 +215,7 @@ cdtMergingLOOCV <- function(
 
     parsL = c(condition = length(which(ncInfo$exist)) >= 20, parallel)
 
-    exports <- list(...)[[1]]
+    exports <- list(...)$export
 
     out.cv <- cdt.foreach(seq_along(ncInfo$nc.files), parsL = parsL,
                     .packages = c('sp', 'ncdf4'),
