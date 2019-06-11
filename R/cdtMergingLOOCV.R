@@ -107,8 +107,7 @@ cdtMergingLOOCV <- function(
                         use.RnoR = FALSE,
                         pars.RnoR = list(wet.day = 1.0, smooth = FALSE),
                         vgm.model = c("Exp", "Gau", "Sph", "Pen"),
-                        parallel = list(dopar = TRUE, detect.cores = TRUE, nb.cores = 2),
-                        ...
+                        parallel = list(dopar = TRUE, detect.cores = TRUE, nb.cores = 2)
                     )
 {
     # test missing start and end date
@@ -215,12 +214,12 @@ cdtMergingLOOCV <- function(
 
     parsL = c(condition = length(which(ncInfo$exist)) >= 20, parallel)
 
-    exports <- list(...)$export
+    args <- formalArgs(cdtMergingLOOCV)
+    for(v in args) assign(v, get(v), envir = environment())
 
     out.cv <- cdt.foreach(seq_along(ncInfo$nc.files), parsL = parsL,
-                    .packages = c('sp', 'ncdf4'),
-                    .export = exports,
-                    FUN = function(jj)
+                          .packages = c('sp', 'ncdf4'),
+                          FUN = function(jj)
     {
         if(ncInfo$exist[jj]){
             nc <- nc_open(ncInfo$nc.files[jj])

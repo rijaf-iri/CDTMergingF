@@ -231,9 +231,12 @@ cdtMerging <- function(
 
     parsL = c(condition = length(which(ncInfo$exist)) >= 20, parallel)
 
+    args <- formalArgs(cdtMerging)
+    for(v in args) assign(v, get(v), envir = environment())
+
     ret <- cdt.foreach(seq_along(ncInfo$nc.files), parsL = parsL,
-                    .packages = c('sp', 'ncdf4'),
-                    FUN = function(jj)
+                       .packages = c('sp', 'ncdf4'),
+                       FUN = function(jj)
     {
         if(ncInfo$exist[jj]){
             nc <- nc_open(ncInfo$nc.files[jj])
