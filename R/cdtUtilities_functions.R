@@ -102,19 +102,61 @@ grid2pointINDEX <- function(pts_Coords, grd_Coords){
 
 ########################################
 
+# smooth.matrix <- function(mat, ns){
+#     rm <- nrow(mat) + 2 * ns
+#     cm <- ncol(mat) + 2 * ns
+#     M <- matrix(NA, rm, cm)
+#     sqC <- (ns + 1):(cm - ns)
+#     sqR <- (ns + 1):(rm - ns)
+#     M[sqR, sqC] <- mat
+#     sqN <- -ns:ns
+#     for(j in sqC)
+#         for(i in sqR)
+#             mat[i - ns, j - ns] <- mean(M[i + sqN, j + sqN], na.rm = TRUE)
+#     mat[is.nan(mat)] <- NA
+#     return(mat)
+# }
+
 smooth.matrix <- function(mat, ns){
-    rm <- nrow(mat) + 2 * ns
-    cm <- ncol(mat) + 2 * ns
-    M <- matrix(NA, rm, cm)
-    sqC <- (ns + 1):(cm - ns)
-    sqR <- (ns + 1):(rm - ns)
-    M[sqR, sqC] <- mat
-    sqN <- -ns:ns
-    for(j in sqC)
-        for(i in sqR)
-            mat[i - ns, j - ns] <- mean(M[i + sqN, j + sqN], na.rm = TRUE)
-    mat[is.nan(mat)] <- NA
-    return(mat)
+    res <- cdt.matrix.mw(mat, ns, ns, mean, na.rm = TRUE)
+    res[is.nan(res)] <- NA
+    return(res)
+}
+
+# Calculate moving window values for the neighborhood of a center grid
+cdt.matrix.mw <- function(x, sr, sc, fun, ...){
+    fun <- match.fun(fun)
+    nr <- nrow(x)
+    nc <- ncol(x)
+    res <- x * NA
+    for(j in 1:nc){
+        for(i in 1:nr){
+            ir <- i + (-sr:sr)
+            ir <- ir[ir > 0 & ir <= nr]
+            ic <- j + (-sc:sc)
+            ic <- ic[ic > 0 & ic <= nc]
+            res[i, j] <- fun(c(x[ir, ic]), ...)
+        }
+    }
+    return(res)
+}
+
+cdt.2matrices.mv <- function(x, y, sr, sc, fun, ...){
+    stopifnot(dim(x) == dim(y))
+    fun <- match.fun(fun)
+    nr <- nrow(x)
+    nc <- ncol(x)
+    res <- x * NA
+    for(j in 1:nc){
+        for(i in 1:nr){
+            ir <- i + (-sr:sr)
+            ir <- ir[ir > 0 & ir <= nr]
+            ic <- j + (-sc:sc)
+            ic <- ic[ic > 0 & ic <= nc]
+            res[i, j] <- fun(c(x[ir, ic]), c(y[ir, ic]), ...)
+        }
+    }
+    return(res)
 }
 
 ########################################
@@ -203,3 +245,41 @@ cdt.foreach <- function(loopL, parsL, ..., FUN)
 
     return(ret.loop)
 }
+
+########################################
+
+#' Read CDT station data format
+#' 
+#' This function reads a CDT station data format.
+#' 
+#' @param stn.file full path name to the station file (CDT station data format)
+#' @param sep the field separator character of the column, default is comma.
+#' @param na missing value flag, the default is "-99".
+#' @return A list of the id, longitude, latitude, elevation (if available) of the stations as a vector, date and the station data as a matrix of dimensions nrow= number of stations and ncol= length of date.
+#' 
+#' @export
+
+read.CDTstation <- function(stn.file, sep = ",", na = "-99"){
+    stnData <- read.table(stn.file, sep = sep, na.strings = na,
+                          colClasses = "character",
+                          stringsAsFactors = FALSE)
+    seph <- rle(grepl('[[:digit:]]', as.character(stnData[, 1])))
+    ipos <- which(!seph$values & seph$lengths >= 3 & seph$lengths <= 4)
+    if(length(ipos) == 0 | ipos[1] != 1) stop('Station data is not in a standard unambiguous CDT format')
+    pos <- seph$lengths[ipos[1]]
+
+    list(id = as.character(stnData[1, -1]),
+        lon = as.numeric(stnData[2, -1]),
+        lat = as.numeric(stnData[3, -1]),
+        elv = if(pos == 4) as.numeric(stnData[4, -1]) else NULL,
+        dates = as.character(stnData[-(1:pos), 1]),
+        data = local({
+                    tmp <- stnData[-(1:pos), -1, drop = FALSE]
+                    ntmp <- dim(tmp)
+                    tmp <- as.numeric(unlist(tmp))
+                    dim(tmp) <- ntmp
+                    tmp
+            })
+        )
+}
+

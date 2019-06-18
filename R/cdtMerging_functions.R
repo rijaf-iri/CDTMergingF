@@ -2,16 +2,23 @@
 merging.functions <- function(locations.stn, newgrid, 
                             merging.method, interp.method,
                             maxdist, pass.ratio, pass.nmin, pass.nmax,
-                            vgm.model, spheric, nc.date,
-                            neg.value, log.file)
+                            vgm.model, spheric, nc.date, neg.value,
+                            use.RnoR, pars.RnoR, log.file)
 {
     interp.method <- switch(merging.method,
                             "CSc" = "cressman",
                             "BSc" = "barnes",
                             interp.method)
+    if(use.RnoR){
+        wet.day <- pars.RnoR$wet.day
+        if(wet.day <= 0) wet.day <- wet.day + 1e-13
+        locations.stn$rnr.stn <- ifelse(locations.stn$stn < wet.day, 0, 1)
+    }
+
+    nlon <- newgrid@grid@cells.dim[1]
+    nlat <- newgrid@grid@cells.dim[2]
 
     for(pass in seq_along(pass.ratio)){
-
         rmax <- maxdist * pass.ratio[pass]
         nmin <- pass.nmin[pass]
         nmax <- pass.nmax[pass]
@@ -119,10 +126,33 @@ merging.functions <- function(locations.stn, newgrid,
         if(!neg.value) out.mrg[out.mrg < 0] <- 0
         ina <- is.na(out.mrg)
         out.mrg[ina] <- newgrid@data$grd[ina]
+
+        #########
+
+        if(use.RnoR){
+            newdata0$grd <- out.mrg[igrid]
+            rnr0 <- rain_no_rain.mask(locations.stn, newdata0, nmax)
+            if(!is.null(rnr0)){
+                rnr <- matrix(1, ncol = nlat, nrow = nlon)
+                rnr[igrid] <- rnr0
+
+               if(pars.RnoR$smooth){
+                    if(pass == length(pass.ratio)){
+                        ij <- over(locations.stn, as(newgrid, "SpatialPixels"))
+                        rnr[ij] <- locations.stn$rnr.stn
+                    }
+                    rnr <- (2 * rnr + smooth.matrix(rnr, 2))/3
+                }
+                out.mrg <- out.mrg * c(rnr)
+            }
+        }
+
+        #########
+
         newgrid@data$grd <- out.mrg
     }
 
-    out.mrg <- matrix(out.mrg, ncol = newgrid@grid@cells.dim[2], nrow = newgrid@grid@cells.dim[1])
+    out.mrg <- matrix(out.mrg, ncol = nlat, nrow = nlon)
 
     return(out.mrg)
 }

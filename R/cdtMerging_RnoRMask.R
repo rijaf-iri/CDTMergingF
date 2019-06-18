@@ -1,21 +1,15 @@
 
-rain_no_rain.mask <- function(locations.stn, newgrid, pars.RnoR, pass.nmax)
+rain_no_rain.mask <- function(locations.stn, newgrid, nmax)
 {
-    wet.day <- pars.RnoR$wet.day
-    if(wet.day <= 0) wet.day <- wet.day + 1e-13
-    ij <- over(locations.stn, as(newgrid, "SpatialPixels"))
-    locations.stn$rnr.stn <- ifelse(locations.stn$stn < wet.day, 0, 1)
-    locations.stn$grd <- newgrid@data$grd[ij]
-    locations.stn <- locations.stn[!is.na(locations.stn$grd), ]
+    glm.binom <- tryCatch(
+            glm(rnr.stn ~ grd, data = locations.stn, family = binomial(link = "logit")),
+            error=function(e) e, warning=function(w) w
+        )
 
-    glm.binom <- glm(rnr.stn ~ grd, data = locations.stn, family = binomial(link = "logit"))
+    if(inherits(glm.binom, "warning") | inherits(glm.binom, "error")) return(NULL)
 
-    nlon <- newgrid@grid@cells.dim[1]
-    nlat <- newgrid@grid@cells.dim[2]
-    rnr <- matrix(1, ncol = nlat, nrow = nlon)
+    rnr <- NULL
     if(!is.na(glm.binom$coef[2])){
-        nmax <- pass.nmax[length(pass.nmax)]
-
         locations.stn$rnr.res <- residuals(glm.binom)
         rnr.trend <- predict(glm.binom, newdata = newgrid, type = 'link')
 
@@ -26,12 +20,7 @@ rain_no_rain.mask <- function(locations.stn, newgrid, pars.RnoR, pass.nmax)
         ### decision boundary 0.5
         rnr[rnr >= 0.5] <- 1
         rnr[rnr < 0.5] <- 0
-        rnr <- matrix(rnr, ncol = nlat, nrow = nlon)
         rnr[is.na(rnr)] <- 1
-        if(pars.RnoR$smooth){
-            rnr[ij] <- locations.stn$rnr.stn
-            rnr <- (2 * rnr + smooth.matrix(rnr, 2))/3
-        }
     }
 
     return(rnr)

@@ -163,26 +163,7 @@ cdtMergingLOOCV <- function(
     ##############
 
     # Test missing station 
-    stnData <- read.table(station$file, sep = station$sep, na.strings = station$miss, colClasses = "character", stringsAsFactors = FALSE)
-    seph <- rle(grepl('[[:digit:]]', as.character(stnData[, 1])))
-    ipos <- which(!seph$values & seph$lengths >= 3 & seph$lengths <= 4)
-    if(length(ipos) == 0 | ipos[1] != 1) stop('Station data is not in a standard unambiguous CDT format')
-    pos <- seph$lengths[ipos[1]]
-    heads <- as.matrix(stnData[1:pos, ])
-
-    stnData <- list(id = as.character(stnData[1, -1]),
-                    lon = as.numeric(stnData[2, -1]),
-                    lat = as.numeric(stnData[3, -1]),
-                    elv = if(pos == 4) as.numeric(stnData[4, -1]) else NULL,
-                    dates = as.character(stnData[-(1:pos), 1]),
-                    data = local({
-                                tmp <- stnData[-(1:pos), -1, drop = FALSE]
-                                ntmp <- dim(tmp)
-                                tmp <- as.numeric(unlist(tmp))
-                                dim(tmp) <- ntmp
-                                tmp
-                        })
-                    )
+    stnData <- read.CDTstation(station$file, station$sep, station$miss)
 
     ##############
 
@@ -266,13 +247,8 @@ cdtMergingLOOCV <- function(
             out.mrg <- merging.functions(loc.stn, newgrid, 
                                         merging.method, interp.method,
                                         maxdist, pass.ratio, pass.nmin, pass.nmax, 
-                                        vgm.model, spheric, ncInfo$dates[jj],
-                                        neg.value, log.file)
-            if(use.RnoR){
-                rnr <- rain_no_rain.mask(loc.stn, newgrid, pars.RnoR, pass.nmax)
-                out.mrg <- out.mrg * rnr
-            }
-
+                                        vgm.model, spheric, ncInfo$dates[jj], neg.value,
+                                        use.RnoR, pars.RnoR, log.file)
             out.mrg[ijNA[ii]]
         })
         xstn <- do.call(c, xstn)

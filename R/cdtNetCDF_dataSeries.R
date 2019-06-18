@@ -1,3 +1,17 @@
+#' Parse the NetCDF files
+#'
+#' Parse all NetCDF data inside a directory according the provided filename format
+#' 
+#' @param Tstep The time step of the NetCDF files. Valid options: 'daily', 'pentad', 'dekadal', 'monthly'.
+#' @param start.date An object of class \code{Date} indicating the start date to be parsed.
+#' @param end.date An object of class \code{Date} indicating the end date to be parsed.
+#' @param months An integer vector indicating the months to be parsed.
+#' @param ncDir The full path to the directory containing the NetCDF files.
+#' @param ncFileFormat Filename format of the NetCDF files. Ex: rfe_%s%s%s.nc
+#' @param error.msg A message to be displayed when no files were found.
+#' @return A list of a character vector indicating the date, a character vector containing the full path name of the NetCDF files and a logical vector indicating if the file exists.
+#' 
+#' @export
 
 ncFilesInfo <- function(Tstep, start.date, end.date, months,
                         ncDir, ncFileFormat, error.msg)

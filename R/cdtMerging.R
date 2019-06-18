@@ -175,25 +175,7 @@ cdtMerging <- function(
     ##############
 
     # Test missing station 
-    stnData <- read.table(station$file, sep = station$sep, na.strings = station$miss, colClasses = "character", stringsAsFactors = FALSE)
-    seph <- rle(grepl('[[:digit:]]', as.character(stnData[, 1])))
-    ipos <- which(!seph$values & seph$lengths >= 3 & seph$lengths <= 4)
-    if(length(ipos) == 0 | ipos[1] != 1) stop('Station data is not in a standard unambiguous CDT format')
-    pos <- seph$lengths[ipos[1]]
-
-    stnData <- list(id = as.character(stnData[1, -1]),
-                    lon = as.numeric(stnData[2, -1]),
-                    lat = as.numeric(stnData[3, -1]),
-                    elv = if(pos == 4) as.numeric(stnData[4, -1]) else NULL,
-                    dates = as.character(stnData[-(1:pos), 1]),
-                    data = local({
-                                tmp <- stnData[-(1:pos), -1, drop = FALSE]
-                                ntmp <- dim(tmp)
-                                tmp <- as.numeric(unlist(tmp))
-                                dim(tmp) <- ntmp
-                                tmp
-                        })
-                    )
+    stnData <- read.CDTstation(station$file, station$sep, station$miss)
 
     ##############
 
@@ -277,15 +259,11 @@ cdtMerging <- function(
             return(-1)
         }
 
-        out.mrg <- merging.functions(locations.stn, newgrid, 
+       out.mrg <- merging.functions(locations.stn, newgrid, 
                                     merging.method, interp.method,
                                     maxdist, pass.ratio, pass.nmin, pass.nmax, 
-                                    vgm.model, spheric, ncInfo$dates[jj],
-                                    neg.value, log.file)
-        if(use.RnoR){
-            rnr <- rain_no_rain.mask(locations.stn, newgrid, pars.RnoR, pass.nmax)
-            out.mrg <- out.mrg * rnr
-        }
+                                    vgm.model, spheric, ncInfo$dates[jj], neg.value,
+                                    use.RnoR, pars.RnoR, log.file)
 
         ###################
 

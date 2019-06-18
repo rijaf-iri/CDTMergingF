@@ -1,9 +1,8 @@
 
 useDynLib(CDTMergingF, .registration = TRUE)
-export(cdtInterp)
-export(cdtMerging)
-export(cdtMergingLOOCV)
-export(distance.Matrix)
+export(cdtInterp, cdtMerging, cdtMergingLOOCV)
+export(distance.Matrix, defSpatialPixels, grid2pointINDEX)
+export(read.CDTstation, ncFilesInfo)
 import(ncdf4, sp)
 importFrom(stats, binomial, gaussian, glm, predict, residuals, var)
 importFrom(utils, read.table, write.table)
