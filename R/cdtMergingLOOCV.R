@@ -165,6 +165,11 @@ cdtMergingLOOCV <- function(
     # Test missing station 
     stnData <- read.CDTstation(station$file, station$sep, station$miss)
 
+    heads <- do.call(rbind, stnData[c('id', 'lon', 'lat', 'elv')])
+    capt <- c("STNID", "LON")
+    capt <- if(nrow(heads) == 3) c(capt, "DATE/LAT") else c(capt, "LAT", "DATE/ELEV")
+    heads <- cbind(capt, heads)
+
     ##############
 
     ## Test netcdf missing

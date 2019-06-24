@@ -7,7 +7,7 @@
 #' @param end.date An object of class \code{Date} indicating the end date to be parsed.
 #' @param months An integer vector indicating the months to be parsed.
 #' @param ncDir The full path to the directory containing the NetCDF files.
-#' @param ncFileFormat Filename format of the NetCDF files. Ex: rfe_%s%s%s.nc
+#' @param ncFileFormat Filename format of the NetCDF files.
 #' @param error.msg A message to be displayed when no files were found.
 #' @return A list of a character vector indicating the date, a character vector containing the full path name of the NetCDF files and a logical vector indicating if the file exists.
 #' 

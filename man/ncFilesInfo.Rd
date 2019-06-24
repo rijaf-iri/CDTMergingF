@@ -18,7 +18,7 @@ ncFilesInfo(Tstep, start.date, end.date, months, ncDir, ncFileFormat,
 
 \item{ncDir}{The full path to the directory containing the NetCDF files.}
 
-\item{ncFileFormat}{Filename format of the NetCDF files. Ex: rfe_%s%s%s.nc}
+\item{ncFileFormat}{Filename format of the NetCDF files.}
 
 \item{error.msg}{A message to be displayed when no files were found.}
 }
