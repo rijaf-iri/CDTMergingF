@@ -62,38 +62,44 @@ distance.matrix <- function(x, y, spheric){
 
 ########################################
 
-defSpatialPixels <- function(grd_Coords){
-    # grd_Coords: named list(lon, lat)
-    newgrid <- expand.grid(lon = grd_Coords$lon, lat = grd_Coords$lat)
-    coordinates(newgrid) <- ~lon+lat
-    newgrid <- try(SpatialPixels(points = newgrid,
-                            tolerance = sqrt(sqrt(.Machine$double.eps)),
-                            proj4string = CRS(as.character(NA))), silent = TRUE)
-    if(inherits(newgrid, "try-error")){
-        newgrid <- expand.grid(lon = grd_Coords$lon, lat = grd_Coords$lat)
-        coordinates(newgrid) <- ~lon+lat
-        newgrid <- SpatialPixels(points = newgrid, tolerance = 0.001,
-                                proj4string = CRS(as.character(NA)))
+## Define spatialPixels
+defSpatialPixels <- function(grd_Coords, projCRS = CRS(as.character(NA)), regrid = FALSE)
+{
+    if(regrid){
+        x <- grd_Coords$lon
+        xrg <- diff(range(diff(x)))
+        if(xrg > 0.0001){
+            xr <- range(x)
+            x <- seq(xr[1], xr[2], length.out = length(x))
+        }
+        y <- grd_Coords$lat
+        yrg <- diff(range(diff(y)))
+        if(yrg > 0.0001){
+            yr <- range(y)
+            y <- seq(yr[1], yr[2], length.out = length(y))
+        }
+
+        grd0 <- expand.grid(lon = x, lat = y)
+        coordinates(grd0) <- ~lon+lat
+        grd <- SpatialPixels(points = grd0, tolerance = 0.0002, proj4string = projCRS)
+    }else{
+        grd0 <- expand.grid(lon = grd_Coords$lon, lat = grd_Coords$lat)
+        coordinates(grd0) <- ~lon+lat
+
+        foo <- function(tol) SpatialPixels(points = grd0, tolerance = tol, proj4string = projCRS)
+        grd <- try(foo(sqrt(sqrt(.Machine$double.eps))), silent = TRUE)
+        if(inherits(grd, "try-error")) grd <- foo(0.005)
     }
 
-    return(newgrid)
+    return(grd)
 }
 
-grid2pointINDEX <- function(pts_Coords, grd_Coords){
-    # grd_Coords: named list(lon, lat)
-    # pts_Coords: named list(lon, lat)
-    newgrid <- expand.grid(lon = grd_Coords$lon, lat = grd_Coords$lat)
-    coordinates(newgrid) <- ~lon+lat
-    newgrid <- try(SpatialPixels(points = newgrid,
-                            tolerance = sqrt(sqrt(.Machine$double.eps)),
-                            proj4string = CRS(as.character(NA))), silent = TRUE)
-    if(inherits(newgrid, "try-error")){
-        newgrid <- expand.grid(lon = grd_Coords$lon, lat = grd_Coords$lat)
-        coordinates(newgrid) <- ~lon+lat
-        newgrid <- SpatialPixels(points = newgrid, tolerance = 0.001,
-                                proj4string = CRS(as.character(NA)))
-    }
+##############################################
 
+## Get index of points at grid
+grid2pointINDEX <- function(pts_Coords, grd_Coords, projCRS = CRS(as.character(NA)), regrid = FALSE)
+{
+    newgrid <- defSpatialPixels(grd_Coords, projCRS, regrid)
     pts.loc <- data.frame(lon = pts_Coords$lon, lat = pts_Coords$lat)
     pts.loc <- SpatialPoints(pts.loc)
     ijGrd <- unname(over(pts.loc, geometry(newgrid)))
@@ -159,40 +165,129 @@ cdt.2matrices.mv <- function(x, y, sr, sc, fun, ...){
     return(res)
 }
 
+##############################################
+
+## nx and ny for as.image
+# x: diff(range( lon or lat ))
+nx_ny_as.image <- function(x) round(x / (0.0167323 * x^0.9602))
+
+## copy of fields::as.image
+cdt.as.image <- function(pts.val, pts.xy, grid = NULL, nx = 64, ny = 64, weighted = FALSE, regrid = FALSE)
+{
+    if(is.null(grid)){
+        xlim <- range(pts.xy[, 1], na.rm = TRUE)
+        ylim <- range(pts.xy[, 2], na.rm = TRUE)
+        xlim <- xlim + diff(xlim) * c(-1, 1) * 0.01
+        ylim <- ylim + diff(ylim) * c(-1, 1) * 0.01
+        grid <- list(lon = seq(xlim[1], xlim[2], length.out = nx),
+                     lat = seq(ylim[1], ylim[2], length.out = ny))
+    }
+    xy <- do.call(expand.grid, grid)
+    ijGrd <- grid2pointINDEX(list(lon = pts.xy[, 1], lat = pts.xy[, 2]), grid, regrid = regrid)
+    out <- list(x = grid$lon, y = grid$lat, z = matrix(NA, length(grid$lon), length(grid$lat)))
+
+    ij <- !is.na(pts.val)
+    pts.val <- pts.val[ij]
+    if(length(pts.val) == 0) return(out)
+    pts.xy <- pts.xy[ij, , drop = FALSE]
+    ijGrd <- ijGrd[ij]
+    idx <- split(seq_along(ijGrd), ijGrd)
+
+    if(any(sapply(idx, length) > 1)){
+        w <- rep(1, length(ijGrd))
+        if(weighted){
+            idup <- duplicated(ijGrd) | duplicated(ijGrd, fromLast = TRUE)
+            stn.grd <- xy[ijGrd, ]
+            dist <- 1 / ((stn.grd[idup, 1] - pts.xy[idup, 1])^2 + (stn.grd[idup, 2] - pts.xy[idup, 2])^2)
+            dist[is.infinite(dist)] <- 2 * max(dist[!is.infinite(dist)])
+            w[idup] <- dist
+        }
+        val <- sapply(idx, function(j) sum(w[j] * pts.val[j]) / sum(w[j]))
+    }else val <- pts.val[unlist(idx)]
+    ij <- as.numeric(names(idx))
+    out$z[ij] <- val
+    return(out)
+}
+
 ########################################
 
-create_grid_buffer <- function(locations.stn, newgrid, radius, spheric)
+# create_grid_buffer <- function(locations.stn, newgrid, radius, spheric)
+# {
+#     nx <- newgrid@grid@cells.dim[1]
+#     ny <- newgrid@grid@cells.dim[2]
+#     rx <- as.integer(radius/newgrid@grid@cellsize[1])
+#     ry <- as.integer(radius/newgrid@grid@cellsize[2])
+#     ix <- seq(1, newgrid@grid@cells.dim[1], rx)
+#     iy <- seq(1, newgrid@grid@cells.dim[2], ry)
+#     if(nx - ix[length(ix)] > rx/3) ix <- c(ix, nx)
+#     if(ny - iy[length(iy)] > ry/3) iy <- c(iy, ny)
+#     ixy <- expand.grid(ix, iy)
+#     ixy <- ixy[, 1] + ((ixy[, 2] - 1) * nx)
+#     coarsegrid <- as(newgrid[ixy, ], "SpatialPixels") 
+#     if(spheric){
+#         ctr <- rowSums(coarsegrid@bbox)/2
+#         pts <- c(ctr[1] + radius * cos(pi/4), ctr[2] + radius * sin(pi/4))
+#         radS <- distance.vector(pts, matrix(ctr, nrow = 1), spheric)
+#     }else radS <- radius
+
+#     dst <- distance.matrix(locations.stn@coords, coarsegrid@coords, spheric)
+#     dst <- rowSums(dst < 0.5 * radS) == 0
+#     coarsegrid <- coarsegrid[dst, ]
+
+#     buffer.out <- rgeos::gBuffer(locations.stn, width = 2 * radius)
+#     icoarse.out <- as.logical(over(coarsegrid, buffer.out))
+#     icoarse.out[is.na(icoarse.out)] <- FALSE
+#     coarsegrid <- coarsegrid[icoarse.out, ]
+
+#     buffer.grid <- rgeos::gBuffer(locations.stn, width = radius)
+#     igrid <- as.logical(over(newgrid, buffer.grid))
+#     igrid[is.na(igrid)] <- FALSE
+#     newdata0 <- newgrid[igrid, ]
+#     list(grid.buff = newdata0, ij = igrid, coarse = coarsegrid)
+# }
+
+create_grid_buffer <- function(locations.stn, newgrid, radius, fac = 4, spheric = FALSE)
 {
     nx <- newgrid@grid@cells.dim[1]
     ny <- newgrid@grid@cells.dim[2]
-    rx <- as.integer(radius/newgrid@grid@cellsize[1])
-    ry <- as.integer(radius/newgrid@grid@cellsize[2])
-    ix <- seq(1, newgrid@grid@cells.dim[1], rx)
-    iy <- seq(1, newgrid@grid@cells.dim[2], ry)
+
+    rx <- as.integer(radius / (fac * newgrid@grid@cellsize[1]))
+    ry <- as.integer(radius / (fac * newgrid@grid@cellsize[2]))
+
+    ix <- seq(1, nx, rx)
+    iy <- seq(1, ny, ry)
     if(nx - ix[length(ix)] > rx/3) ix <- c(ix, nx)
     if(ny - iy[length(iy)] > ry/3) iy <- c(iy, ny)
     ixy <- expand.grid(ix, iy)
     ixy <- ixy[, 1] + ((ixy[, 2] - 1) * nx)
-    coarsegrid <- as(newgrid[ixy, ], "SpatialPixels") 
+    coarsegrid <- as(newgrid[ixy, ], "SpatialPixels")
+
     if(spheric){
         ctr <- rowSums(coarsegrid@bbox)/2
         pts <- c(ctr[1] + radius * cos(pi/4), ctr[2] + radius * sin(pi/4))
-        radS <- distance.vector(pts, matrix(ctr, nrow = 1), spheric)
-    }else radS <- radius
+        radius <- distance.vector(pts, matrix(ctr, nrow = 1), spheric)
+    }
 
-    dst <- distance.matrix(locations.stn@coords, coarsegrid@coords, spheric)
-    dst <- rowSums(dst < 0.5 * radS) == 0
+    xgrd <- apply(coarsegrid@coords, 2, unique)
+    loc.stn <- cdt.as.image(locations.stn$stn, locations.stn@coords, xgrd, regrid = TRUE)
+    loc.stn <- cbind(do.call(expand.grid, loc.stn[c('x', 'y')]), z = c(loc.stn$z))
+    loc.stn <- loc.stn[!is.na(loc.stn$z), , drop = FALSE]
+    coordinates(loc.stn) <- c('x', 'y')
+
+    dst <- fields::rdist(locations.stn@coords, coarsegrid@coords)
+    dst <- colSums(dst < 0.5 * radius) == 0
     coarsegrid <- coarsegrid[dst, ]
 
-    buffer.out <- rgeos::gBuffer(locations.stn, width = 2 * radius)
+    buffer.out <- rgeos::gBuffer(loc.stn, width = 0.75 * radius)
     icoarse.out <- as.logical(over(coarsegrid, buffer.out))
     icoarse.out[is.na(icoarse.out)] <- FALSE
     coarsegrid <- coarsegrid[icoarse.out, ]
 
-    buffer.grid <- rgeos::gBuffer(locations.stn, width = radius)
+    buffer.grid <- rgeos::gBuffer(loc.stn, width = 0.75 * radius)
     igrid <- as.logical(over(newgrid, buffer.grid))
     igrid[is.na(igrid)] <- FALSE
     newdata0 <- newgrid[igrid, ]
+
     list(grid.buff = newdata0, ij = igrid, coarse = coarsegrid)
 }
 

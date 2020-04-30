@@ -211,7 +211,7 @@ cdtMerging <- function(
 
     ##############
 
-    parsL = c(condition = length(which(ncInfo$exist)) >= 20, parallel)
+    parsL = c(condition = length(which(ncInfo$exist)) >= 10, parallel)
 
     args <- formalArgs(cdtMerging)
     for(v in args) assign(v, get(v), envir = environment())

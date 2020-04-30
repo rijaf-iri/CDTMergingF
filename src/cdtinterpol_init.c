@@ -12,6 +12,7 @@ extern void F77_NAME(cressman_interp)(void *, void *, void *, void *, void *, vo
 extern void F77_NAME(kriging_interp)(void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
 extern void F77_NAME(distance_vector)(void *, void *, void *, void *, void *);
 extern void F77_NAME(distance_matrix)(void *, void *, void *, void *, void *, void *);
+extern void F77_NAME(distance_pixel)(void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
 
 #define FDEF(name, n) {#name, (DL_FUNC) &F77_NAME(name), n}
 static const R_FortranMethodDef FortranEntries[] = {
@@ -23,6 +24,7 @@ static const R_FortranMethodDef FortranEntries[] = {
 	FDEF(kriging_interp, 13),
 	FDEF(distance_vector, 5),
 	FDEF(distance_matrix, 6),
+	FDEF(distance_pixel, 10),
 	{NULL, NULL, 0}
 };
 

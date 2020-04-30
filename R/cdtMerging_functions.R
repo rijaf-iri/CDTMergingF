@@ -18,12 +18,16 @@ merging.functions <- function(locations.stn, newgrid,
     nlon <- newgrid@grid@cells.dim[1]
     nlat <- newgrid@grid@cells.dim[2]
 
+    nrun <- if(length(pass.ratio) > 1) length(pass.ratio) else 2
+    fac <- c(4, 3, rep(2, nrun - 2))
+
     for(pass in seq_along(pass.ratio)){
         rmax <- maxdist * pass.ratio[pass]
         nmin <- pass.nmin[pass]
         nmax <- pass.nmax[pass]
 
-        xy.grid <- create_grid_buffer(locations.stn, newgrid, rmax, spheric)
+        xy.grid <- create_grid_buffer(locations.stn, newgrid, rmax, fac[pass], spheric)
+        # xy.grid <- create_grid_buffer(locations.stn, newgrid, rmax, spheric)
         newdata0 <- xy.grid$grid.buff
 
         igrid <- xy.grid$ij
